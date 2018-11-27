@@ -29,12 +29,12 @@ int main (int argc, char *argv[]){
     }
 
     n = atoll(argv[1]);
-    low_value = 2 + BLOCK_LOW(id,p,n-1);
-    high_value = 2 + BLOCK_HIGH(id,p,n-1);
-    size = BLOCK_SIZE(id,p,n-1);
-    proc0_size = (n-1)/p;
+    low_value = 3 + BLOCK_LOW(id,p,n-2) + BLOCK_LOW(id,p,n-2)%2;
+    high_value = 3 + BLOCK_HIGH(id,p,n-2) - BLOCK_HIGH(id,p,n-2)%2;
+    size = ((high_value-low_value)/2)+1;
+    proc0_size = (n-2)/(p*2);
     
-    if ((2 + proc0_size) < (int) sqrt((double) n)) {
+    if ((3 + proc0_size) < (int) sqrt((double) n)) {
         if (!id) printf ("Too many processes\n");
             MPI_Finalize();
             exit (1);
@@ -49,21 +49,21 @@ int main (int argc, char *argv[]){
     
     for (i = 0; i < size; i++) marked[i] = 0;
     if (!id) index = 0;
-    prime = 2;
+    prime = 3;
         
     do {
         if (prime * prime > low_value)
-            first = prime * prime - low_value;
+            first = (prime * prime - low_value)/2;
             else {
                 if (!(low_value % prime)) first = 0;
-                else first = prime - (low_value % prime);
+                else first = (prime - low_value % prime +low_value/prime%2 * prime)/2;
             }
             for (i = first; i < size; i += prime) marked[i] = 1;
             if (!id) {
             while (marked[++index]);
-            prime = index + 2;
+            prime = index*2+3;
             }
-            MPI_Bcast (&prime,  1, MPI_INT, 0, MPI_COMM_WORLD);
+            if(p>1) MPI_Bcast (&prime,  1, MPI_INT, 0, MPI_COMM_WORLD);
        } while (prime * prime <= n);
 
     count = 0;
@@ -72,6 +72,7 @@ int main (int argc, char *argv[]){
     MPI_Reduce (&count, &global_count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     elapsed_time += MPI_Wtime();
     if (!id) {
+          global_count++;
           printf ("%d primes are less than or equal to %d\n", global_count, n);
           printf ("Total elapsed time: %10.6f\n", elapsed_time);
         }
